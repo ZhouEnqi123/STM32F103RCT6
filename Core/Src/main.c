@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "font.h"
 #include "i2c.h"
 #include "usart.h"
 #include "gpio.h"
@@ -27,6 +28,7 @@
 #include "aht20.h"
 #include <string.h>
 #include <stdio.h>
+#include "oled.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -93,36 +95,55 @@ int main(void)
   MX_I2C1_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-  // 初始化AHT20传感器
+  // 初始化 AHT20 温湿度传感器
   if (AHT20_Init() != HAL_OK) {
-      // 初始化失败，可以添加错误处理
+      // AHT20 初始化失败，可在此添加错误提示或重试逻辑
   }
+
+  // 初始化 OLED 显示
+  OLED_Init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    //点亮led
+    // 点亮 LED 指示灯
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
-    
-    // 测量温湿度
+
+    // 读取 AHT20 温湿度数据
     float humidity, temperature;
     if (AHT20_Measure(&humidity, &temperature) == HAL_OK) {
-        // 格式化输出字符串
-        char buffer[50];
-        sprintf(buffer, "Humidity: %.2f%%, Temperature: %.2f°C\r\n", humidity, temperature);
-        // 通过UART1发送
-        HAL_UART_Transmit(&huart1, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+        // 格式化数值字符串，不带单位符号
+        char temp_str[16];
+        sprintf(temp_str, "%.2f", temperature);
+
+        char hum_str[16];
+        sprintf(hum_str, "%.2f", humidity);
+
+        // 更新 OLED 显示，单位使用固定标签显示
+        OLED_NewFrame();
+        OLED_PrintASCIIString(0, 0, "Temp:", &afont16x8, OLED_COLOR_NORMAL);
+        OLED_PrintASCIIString(45, 0, temp_str, &afont16x8, OLED_COLOR_NORMAL);
+        OLED_PrintASCIIString(95, 0, "C", &afont16x8, OLED_COLOR_NORMAL);
+
+        OLED_PrintASCIIString(0, 16, "Hum:", &afont16x8, OLED_COLOR_NORMAL);
+        OLED_PrintASCIIString(45, 16, hum_str, &afont16x8, OLED_COLOR_NORMAL);
+        OLED_PrintASCIIString(95, 16, "%", &afont16x8, OLED_COLOR_NORMAL);
+        OLED_ShowFrame();
+
+        // 同步输出到 UART 便于调试
+        char uart_buf[60];
+        sprintf(uart_buf, "T:%.2f°C H:%.2f%%\r\n", temperature, humidity);
+        HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), HAL_MAX_DELAY);
     } else {
-        // 测量失败
-        char error_msg[] = "AHT20 measurement failed\r\n";
+        // AHT20 读取失败
+        char error_msg[] = "AHT20 Error\r\n";
         HAL_UART_Transmit(&huart1, (uint8_t*)error_msg, strlen(error_msg), HAL_MAX_DELAY);
     }
-    
-    // 等待2秒
-    HAL_Delay(2000);
-      
+
+    // 延时 1 秒后继续读取
+    HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
