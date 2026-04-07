@@ -24,7 +24,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "aht20.h"
+#include <string.h>
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -91,7 +93,10 @@ int main(void)
   MX_I2C1_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  // 初始化AHT20传感器
+  if (AHT20_Init() != HAL_OK) {
+      // 初始化失败，可以添加错误处理
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -100,6 +105,23 @@ int main(void)
   {
     //点亮led
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+    
+    // 测量温湿度
+    float humidity, temperature;
+    if (AHT20_Measure(&humidity, &temperature) == HAL_OK) {
+        // 格式化输出字符串
+        char buffer[50];
+        sprintf(buffer, "Humidity: %.2f%%, Temperature: %.2f°C\r\n", humidity, temperature);
+        // 通过UART1发送
+        HAL_UART_Transmit(&huart1, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+    } else {
+        // 测量失败
+        char error_msg[] = "AHT20 measurement failed\r\n";
+        HAL_UART_Transmit(&huart1, (uint8_t*)error_msg, strlen(error_msg), HAL_MAX_DELAY);
+    }
+    
+    // 等待2秒
+    HAL_Delay(2000);
       
     /* USER CODE END WHILE */
 
